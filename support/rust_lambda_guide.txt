@@ -1,0 +1,103 @@
+**Creating a Rust Lambda Function to Return City Facts**
+
+### 1. **Set Up the AWS Environment**
+* **AWS Account:** Ensure you have an active AWS account.
+* **AWS CLI:** Install and configure the AWS CLI to interact with your AWS account.
+* **SAM CLI:** Install the Serverless Application Model (SAM) CLI to package and deploy your Lambda function.
+
+### 2. **Create a Rust Project**
+* **Initialize a New Rust Project:**
+   ```bash
+   cargo new city_fact_lambda
+   ```
+* **Add Dependencies:**
+   ```bash
+   cd city_fact_lambda
+   cargo add aws-lambda-runtime tokio serde serde_json
+   ```
+
+### 3. **Implement the Lambda Function**
+```rust
+use aws_lambda_runtime::{error::HandlerError, lambda, Context};
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use tokio::runtime::Runtime;
+
+#[derive(Deserialize)]
+struct Event {
+    city: String,
+}
+
+#[derive(Serialize)]
+struct Response {
+    fact: String,
+}
+
+async fn handler(event: Event, _ctx: Context) -> Result<Response, HandlerError> {
+    let city = event.city;
+    let fact = match city.as_str() {
+        "Paris" => "Paris is the city of love.",
+        "Tokyo" => "Tokyo is the world's most populous metropolitan area.",
+        "New York" => "New York City is the most populous city in the United States.",
+        _ => "I couldn't find a fact about that city.",
+    };
+
+    Ok(Response { fact: fact.to_string() })
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let rt = Runtime::new().unwrap();
+    rt.block_on(lambda(handler))?;
+    Ok(())
+}
+```
+
+### 4. **Create the SAM Template**
+Create a `template.yaml` file to define your Lambda function:
+
+```yaml
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: A simple Rust Lambda function to return city facts.
+
+Resources:
+  CityFactFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: provided.al2
+      Handler: city_fact_lambda::main
+      CodeUri: .
+      MemorySize: 128
+      Timeout: 3
+```
+
+### 5. **Package and Deploy the Function**
+* **Package the Function:**
+   ```bash
+   sam package --output-template-file packaged.yaml --s3-bucket <your-bucket-name>
+   ```
+* **Deploy the Function:**
+   ```bash
+   sam deploy --template-file packaged.yaml --stack-name city-fact-lambda --capabilities CAPABILITY_IAM
+   ```
+
+**How to Test the Function:**
+1. **Use the AWS Management Console:**
+   * Navigate to the Lambda service in the AWS Management Console.
+   * Select your newly created function.
+   * Use the "Test" button to provide a JSON payload with the "city" field.
+
+2. **Use the AWS CLI:**
+   ```bash
+   aws lambda invoke --function-name city-fact-lambda --payload '{"city": "Paris"}'
+   ```
+
+**Additional Considerations:**
+* **Error Handling:** Implement robust error handling to gracefully handle unexpected inputs or exceptions.
+* **Data Validation:** Validate the input city name to ensure it's in a valid format.
+* **Fact Source:** Consider using an external API or database to retrieve city facts dynamically.
+* **Security:** Implement appropriate security measures, such as IAM roles and policies, to protect your function and its resources.
+
+By following these steps, you'll have a functional Rust Lambda function that can return city facts based on the provided city name.
